@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Data
+data/
+
+# Environment
+.env
+
+# Build output
+itsysync
+
+# Bun
+*.lockb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
