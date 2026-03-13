@@ -2,10 +2,9 @@ import { loadEnv } from "./env";
 loadEnv();
 
 import { authenticate } from "./auth";
-import { createUser, sync, type SyncRequest } from "./db";
+import { sync, type SyncRequest } from "./db";
 
 const PORT = parseInt(process.env.PORT || "8080");
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -29,32 +28,25 @@ const server = Bun.serve({
       return json({ ok: true, version: "1.0.0" });
     }
 
-    // Create user (admin-only)
-    if (path === "/api/users" && request.method === "POST") {
-      if (!ADMIN_TOKEN) return error("Admin token not configured", 503);
-      const adminAuth = request.headers.get("Authorization");
-      if (adminAuth !== `Bearer ${ADMIN_TOKEN}`) return error("Unauthorized", 401);
-
-      const body = (await request.json()) as { name?: string };
-      const { id, token } = createUser(body.name ?? "");
-      return json({ id, token }, 201);
-    }
-
-    // All other routes require user auth
-    const user = authenticate(request);
-    if (!user) return error("Unauthorized", 401);
+    // All routes require auth
+    if (!authenticate(request)) return error("Unauthorized", 401);
 
     // Sync endpoint
     if (path === "/api/sync" && request.method === "POST") {
-      const body = (await request.json()) as SyncRequest;
-      const result = sync(user.id, body);
+      let body: SyncRequest;
+      try {
+        body = await request.json();
+      } catch {
+        return error("Invalid JSON", 400);
+      }
+      const result = sync(body);
       return json(result);
     }
 
     // Pull-only convenience (GET with since param)
     if (path === "/api/sync" && request.method === "GET") {
       const since = url.searchParams.get("since") ?? undefined;
-      const result = sync(user.id, { since });
+      const result = sync({ since });
       return json(result);
     }
 
